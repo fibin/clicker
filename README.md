@@ -90,3 +90,6 @@ Clicker/
 
 ## Roadmap
 See [ROADMAP.md](ROADMAP.md).
+
+## License
+Released under the [MIT License](LICENSE).
