@@ -1,51 +1,54 @@
-# Clicker — автокликер на WPF
+# Clicker — WPF auto clicker
 
-Автокликер для Windows 10/11 (.NET 8, WPF).
+An auto clicker for Windows 10/11, built with .NET 8 and WPF.
 
-## Возможности
-- **Хоткей старт/стоп, который задаёт пользователь**: любая клавиша с Ctrl/Alt/Shift/Win, а также боковые (Mouse 4/5) или средняя кнопка мыши. По умолчанию — `F6`.
-- **Интервал в мс** — от 1 до 3 600 000. Рядом показано, сколько это кликов в секунду. Интервал можно менять прямо во время работы.
-- **Кнопка мыши**: левая, правая или средняя.
-- **Крестик сворачивает в трей.** Левый клик по иконке открывает окно, правый — меню «Открыть / Старт-Стоп / Выйти». Во время работы на иконке горит зелёная точка.
-- **Украинский и английский**, переключаются на лету. При первом запуске язык выбирается по языку Windows.
-- Настройки сохраняются в `%APPDATA%\Clicker\settings.json`.
-- Запускается только одна копия: повторный запуск exe просто открывает уже работающее окно.
+## Features
+- **Custom start/stop hotkey** — any key with optional Ctrl/Alt/Shift/Win, or the side (Mouse 4/5) or middle mouse button. Default: `F6`.
+- **Click interval in milliseconds** — from 1 to 3,600,000, with a clicks-per-second preview. The interval can be changed while clicking.
+- **Mouse button** — left, right or middle.
+- **Close button minimizes to the tray.** Left-click the tray icon to open the window, right-click for the Open / Start-Stop / Exit menu. A green dot on the icon shows that the clicker is running.
+- **Ukrainian and English UI**, switchable on the fly. On first launch the language follows the Windows language.
+- Settings are saved to `%APPDATA%\Clicker\settings.json`.
+- Single instance: launching the exe again just brings the running window to the front.
 
-## Как это работает в играх
-- Клики отправляются через `SendInput`. Это ввод уровня драйвера, его видят и игры на DirectInput/Raw Input.
-- Кнопка удерживается до 30 мс (но не дольше половины интервала): многие игры читают состояние кнопки раз в кадр и пропускают «мгновенные» клики.
-- Хоткей работает через низкоуровневые хуки (`WH_KEYBOARD_LL` / `WH_MOUSE_LL`) в отдельном потоке, поэтому срабатывает, даже когда активно полноэкранное окно игры.
-- Клики идут в текущую позицию курсора, без движения мыши.
-- Кликер не кликает по собственному окну, поэтому нажатие «Старт» мышкой не останавливает его сразу же.
-- Таймер работает с точностью 1 мс (`timeBeginPeriod(1)` + Stopwatch).
+## Games
+- Clicks are sent with `SendInput`, a driver-level input path that games using DirectInput / Raw Input also receive.
+- The button is held down for up to 30 ms (never longer than half the interval), because many games read the button state once per frame and miss "instant" clicks.
+- The hotkey uses low-level hooks (`WH_KEYBOARD_LL` / `WH_MOUSE_LL`) on a dedicated thread, so it works even while a fullscreen game has focus.
+- Clicks happen at the current cursor position; the mouse is not moved.
+- The clicker never clicks on its own window, so pressing Start with the mouse doesn't immediately stop it.
+- Timing is accurate to 1 ms (`timeBeginPeriod(1)` + `Stopwatch`).
 
-**Если игра запущена от администратора**, Windows (UIPI) блокирует ввод от обычных программ. Нажми «Перезапустить от имени администратора».
+**If the game runs as administrator**, Windows (UIPI) blocks input from regular programs. Use the "Restart as administrator" button.
 
-**Онлайн-игры с античитом** (Vanguard, EAC, BattlEye и т. п.) могут распознать синтетический ввод и забанить аккаунт. Используй в одиночных играх.
+**Online games with anti-cheat** (Vanguard, EAC, BattlEye, etc.) may detect synthetic input and ban the account. Use it in single-player games.
 
-## Сборка и запуск
-Нужен .NET SDK 8 или новее (`dotnet --version`).
+## Build and run
+Requires the .NET SDK 8 or newer (`dotnet --version`).
 
 ```
 cd C:\work\clicker
 dotnet run --project Clicker
 ```
 
-Или открой `Clicker.sln` в Visual Studio 2022 и нажми F5.
+Or open `Clicker.sln` in Visual Studio 2022 and press F5.
 
-Готовый exe: запусти `publish.cmd`. Получится `publish\Clicker.exe`, для работы на ПК должен быть установлен .NET Desktop Runtime 8+.
+To get a standalone exe, run `publish.cmd`. It produces `publish\Clicker.exe`; the target PC needs the .NET Desktop Runtime 8+.
 
-## Структура
+## Project structure
 ```
 Clicker/
-  App.xaml(.cs)              — старт, одна копия, стили
-  MainWindow.xaml(.cs)       — окно, запись хоткея, трей при закрытии
-  Localization/Loc.cs        — строки UA/EN, переключение на лету
-  Localization/TrExtension.cs— {loc:Tr Key} для XAML
-  Models/                    — настройки, хоткей, кнопка мыши
-  Services/ClickEngine.cs    — поток кликов (SendInput)
-  Services/GlobalHotkeyListener.cs — глобальные хуки клавиатуры/мыши
-  Services/TrayIcon.cs       — иконка и меню в трее
-  Services/SettingsStore.cs  — JSON-настройки
-  Services/NativeMethods.cs  — Win32 P/Invoke
+  App.xaml(.cs)                     — startup, single instance, styles
+  MainWindow.xaml(.cs)              — main window, hotkey recording, hide to tray on close
+  Localization/Loc.cs               — UA/EN strings, live language switching
+  Localization/TrExtension.cs       — {loc:Tr Key} markup extension for XAML
+  Models/                           — settings, hotkey, mouse button
+  Services/ClickEngine.cs           — click thread (SendInput)
+  Services/GlobalHotkeyListener.cs  — global keyboard/mouse hooks
+  Services/TrayIcon.cs              — tray icon and menu
+  Services/SettingsStore.cs         — JSON settings
+  Services/NativeMethods.cs         — Win32 P/Invoke
 ```
+
+## Roadmap
+See [ROADMAP.md](ROADMAP.md).
