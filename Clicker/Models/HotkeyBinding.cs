@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 using System.Windows.Input;
 using Clicker.Localization;
 
@@ -22,9 +23,19 @@ public sealed class HotkeyBinding
 
     public bool Win { get; init; }
 
-    public static HotkeyBinding Default => new() { VirtualKey = 0x75 }; // F6
+    public static HotkeyBinding DefaultToggle => new() { VirtualKey = 0x75 }; // F6
 
+    public static HotkeyBinding DefaultRecord => new() { VirtualKey = 0x76 }; // F7
+
+    [JsonIgnore]
     public bool IsValid => VirtualKey > 0 && VirtualKey < 0xFF;
+
+    [JsonIgnore]
+    public int ModifierCount => (Ctrl ? 1 : 0) + (Alt ? 1 : 0) + (Shift ? 1 : 0) + (Win ? 1 : 0);
+
+    public bool SameAs(HotkeyBinding? other) =>
+        other != null && VirtualKey == other.VirtualKey && Ctrl == other.Ctrl && Alt == other.Alt
+        && Shift == other.Shift && Win == other.Win;
 
     public string ToDisplayString()
     {

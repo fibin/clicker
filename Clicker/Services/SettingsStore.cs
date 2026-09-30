@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -54,7 +55,22 @@ public static class SettingsStore
     {
         s.IntervalMs = Math.Clamp(s.IntervalMs, AppSettings.MinIntervalMs, AppSettings.MaxIntervalMs);
         if (s.Hotkey == null || !s.Hotkey.IsValid)
-            s.Hotkey = HotkeyBinding.Default;
+            s.Hotkey = HotkeyBinding.DefaultToggle;
+        if (s.RecordHotkey == null || !s.RecordHotkey.IsValid || s.RecordHotkey.SameAs(s.Hotkey))
+            s.RecordHotkey = s.Hotkey.SameAs(HotkeyBinding.DefaultRecord)
+                ? HotkeyBinding.DefaultToggle
+                : HotkeyBinding.DefaultRecord;
+
+        s.Points ??= new List<SavedPoint>();
+        s.Points.RemoveAll(p => p == null);
+        bool activeSeen = false;
+        foreach (SavedPoint point in s.Points)
+        {
+            // Keep only the first active point.
+            if (point.IsActive && activeSeen) point.IsActive = false;
+            activeSeen |= point.IsActive;
+        }
+
         if (!Enum.IsDefined(s.Button))
             s.Button = MouseButtonKind.Left;
         s.Language ??= "";

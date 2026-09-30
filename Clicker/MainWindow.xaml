@@ -4,7 +4,7 @@
         xmlns:loc="clr-namespace:Clicker.Localization"
         Title="{loc:Tr AppTitle}"
         Icon="Assets/clicker.ico"
-        Width="440"
+        Width="460"
         SizeToContent="Height"
         ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
@@ -39,55 +39,57 @@
 
         <!-- Status -->
         <Border Style="{StaticResource Card}">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Ellipse x:Name="StatusDot" Width="12" Height="12" Fill="#9CA3AF" VerticalAlignment="Center" />
+                    <TextBlock x:Name="StatusText" Grid.Column="1" Margin="10,0,0,0" FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                    <TextBlock x:Name="ClickCountText" Grid.Column="2" Foreground="{StaticResource MutedBrush}"
+                               VerticalAlignment="Center" />
+                </Grid>
+                <TextBlock x:Name="TargetText" Margin="22,4,0,0" Style="{StaticResource Hint}" FontSize="13"
+                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- Interval + mouse button -->
+        <Border Style="{StaticResource Card}">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <Ellipse x:Name="StatusDot" Width="12" Height="12" Fill="#9CA3AF" VerticalAlignment="Center" />
-                <TextBlock x:Name="StatusText" Grid.Column="1" Margin="10,0,0,0" FontWeight="SemiBold"
-                           VerticalAlignment="Center" />
-                <TextBlock x:Name="ClickCountText" Grid.Column="2" Foreground="{StaticResource MutedBrush}"
-                           VerticalAlignment="Center" />
+                <StackPanel>
+                    <TextBlock Text="{loc:Tr Interval}" Style="{StaticResource Label}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBox x:Name="IntervalBox" Width="110" Padding="6,4" MaxLength="7"
+                                 VerticalContentAlignment="Center"
+                                 PreviewTextInput="IntervalBox_PreviewTextInput"
+                                 TextChanged="IntervalBox_TextChanged"
+                                 LostFocus="IntervalBox_LostFocus" />
+                        <TextBlock x:Name="CpsText" Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Style="{StaticResource Hint}" FontSize="13" />
+                    </StackPanel>
+                    <TextBlock x:Name="IntervalError" Margin="0,6,0,0" Foreground="{StaticResource ErrorBrush}"
+                               FontSize="12" TextWrapping="Wrap" Visibility="Collapsed" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                    <TextBlock Text="{loc:Tr MouseButton}" Style="{StaticResource Label}" />
+                    <ComboBox x:Name="ButtonCombo" Width="120" SelectionChanged="ButtonCombo_SelectionChanged">
+                        <ComboBoxItem Tag="Left" Content="{loc:Tr Left}" />
+                        <ComboBoxItem Tag="Right" Content="{loc:Tr Right}" />
+                        <ComboBoxItem Tag="Middle" Content="{loc:Tr Middle}" />
+                    </ComboBox>
+                </StackPanel>
             </Grid>
         </Border>
 
-        <!-- Interval -->
-        <Border Style="{StaticResource Card}">
-            <StackPanel>
-                <TextBlock Text="{loc:Tr Interval}" Style="{StaticResource Label}" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="140" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBox x:Name="IntervalBox" Padding="6,4" MaxLength="7" VerticalContentAlignment="Center"
-                             PreviewTextInput="IntervalBox_PreviewTextInput"
-                             TextChanged="IntervalBox_TextChanged"
-                             LostFocus="IntervalBox_LostFocus" />
-                    <TextBlock x:Name="CpsText" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center"
-                               Style="{StaticResource Hint}" FontSize="13" />
-                </Grid>
-                <TextBlock x:Name="IntervalError" Margin="0,6,0,0" Foreground="{StaticResource ErrorBrush}"
-                           FontSize="12" TextWrapping="Wrap" Visibility="Collapsed" />
-            </StackPanel>
-        </Border>
-
-        <!-- Mouse button -->
-        <Border Style="{StaticResource Card}">
-            <StackPanel>
-                <TextBlock Text="{loc:Tr MouseButton}" Style="{StaticResource Label}" />
-                <ComboBox x:Name="ButtonCombo" Width="140" HorizontalAlignment="Left"
-                          SelectionChanged="ButtonCombo_SelectionChanged">
-                    <ComboBoxItem Tag="Left" Content="{loc:Tr Left}" />
-                    <ComboBoxItem Tag="Right" Content="{loc:Tr Right}" />
-                    <ComboBoxItem Tag="Middle" Content="{loc:Tr Middle}" />
-                </ComboBox>
-            </StackPanel>
-        </Border>
-
-        <!-- Hotkey -->
+        <!-- Hotkeys -->
         <Border Style="{StaticResource Card}">
             <StackPanel>
                 <TextBlock Text="{loc:Tr Hotkey}" Style="{StaticResource Label}" />
@@ -96,16 +98,86 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Border x:Name="HotkeyBox" Background="#F3F4F6" CornerRadius="6" Padding="10,6"
+                    <Border x:Name="ToggleHotkeyBox" Background="#F3F4F6" CornerRadius="6" Padding="10,6"
                             BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
-                        <TextBlock x:Name="HotkeyText" FontFamily="Consolas" FontSize="15" FontWeight="SemiBold"
+                        <TextBlock x:Name="ToggleHotkeyText" FontFamily="Consolas" FontSize="15" FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                     </Border>
-                    <Button x:Name="ChangeHotkeyButton" Grid.Column="1" Margin="10,0,0,0" MinWidth="100"
+                    <Button x:Name="ChangeToggleHotkeyButton" Grid.Column="1" Margin="10,0,0,0" MinWidth="100"
                             Style="{StaticResource SecondaryButton}" Focusable="False"
-                            Click="ChangeHotkeyButton_Click" />
+                            Click="ChangeToggleHotkeyButton_Click" />
                 </Grid>
+
+                <TextBlock Text="{loc:Tr RecordHotkey}" Style="{StaticResource Label}" Margin="0,12,0,6" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="RecordHotkeyBox" Background="#F3F4F6" CornerRadius="6" Padding="10,6"
+                            BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                        <TextBlock x:Name="RecordHotkeyText" FontFamily="Consolas" FontSize="15" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    </Border>
+                    <Button x:Name="ChangeRecordHotkeyButton" Grid.Column="1" Margin="10,0,0,0" MinWidth="100"
+                            Style="{StaticResource SecondaryButton}" Focusable="False"
+                            Click="ChangeRecordHotkeyButton_Click" />
+                </Grid>
+
+                <TextBlock x:Name="HotkeyErrorText" Text="{loc:Tr HotkeyInUse}" Margin="0,6,0,0"
+                           Foreground="{StaticResource ErrorBrush}" FontSize="12" TextWrapping="Wrap"
+                           Visibility="Collapsed" />
                 <TextBlock Text="{loc:Tr HotkeyHint}" Style="{StaticResource Hint}" Margin="0,6,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- Screen points -->
+        <Border Style="{StaticResource Card}">
+            <StackPanel>
+                <TextBlock Text="{loc:Tr Points}" Style="{StaticResource Label}" />
+
+                <TextBlock x:Name="PointsEmptyText" Style="{StaticResource Hint}" FontSize="13" Margin="0,2,0,8" />
+
+                <ScrollViewer MaxHeight="210" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl x:Name="PointsList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="8,5" Margin="0,0,0,6" CornerRadius="6" Background="#F9FAFB"
+                                        BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ToggleButton Style="{StaticResource Switch}" VerticalAlignment="Center"
+                                                      IsChecked="{Binding IsActive, Mode=TwoWay}"
+                                                      ToolTip="{loc:Tr ActivatePoint}"
+                                                      Click="PointToggle_Click" />
+                                        <TextBox Grid.Column="1" Margin="8,0" Padding="2,3" MaxLength="40"
+                                                 Background="Transparent" BorderThickness="0,0,0,1"
+                                                 BorderBrush="{StaticResource CardBorderBrush}"
+                                                 VerticalContentAlignment="Center"
+                                                 Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                 LostFocus="PointName_LostFocus"
+                                                 KeyDown="PointName_KeyDown" />
+                                        <TextBlock Grid.Column="2" Text="{Binding CoordinatesText}" FontFamily="Consolas"
+                                                   Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                                        <Button Grid.Column="3" Content="✕" Margin="6,0,0,0"
+                                                Style="{StaticResource IconButton}"
+                                                ToolTip="{loc:Tr DeletePoint}"
+                                                Click="DeletePoint_Click" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <CheckBox x:Name="MoveEachClickCheck" Content="{loc:Tr MoveEachClick}" Margin="0,4,0,0"
+                          Click="MoveEachClickCheck_Click" />
+                <TextBlock Text="{loc:Tr PointsHint}" Style="{StaticResource Hint}" Margin="0,6,0,0" />
             </StackPanel>
         </Border>
 

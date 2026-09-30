@@ -1,8 +1,9 @@
 # Roadmap
 
-## Сохранённые точки экрана (следующая фича)
-- Хоткей **F7** (с возможностью переназначить) запоминает текущую позицию курсора как новую точку — без ручного ввода координат.
-- Точек можно добавлять сколько угодно; список в окне: название, X/Y, переключатель, удаление. Сохраняется в settings.json.
-- Переключатель работает как радиокнопка: включена максимум одна точка. Если ни одна не включена — клик в текущей позиции курсора (как сейчас).
-- При старте курсор перемещается в активную точку (SendInput, абсолютные координаты виртуального рабочего стола — работает с несколькими мониторами и масштабированием).
-- Открытые вопросы: перемещать курсор один раз при старте или перед каждым кликом (сделать настройкой?); хоткеи для переключения точек (Ctrl+1…9).
+## Done
+- Saved screen points: `F7` saves the current cursor position as a named point; one active point at a time; the cursor moves there on start (optionally before every click).
+
+## Ideas
+- Hotkeys to switch between points without leaving the game (e.g. Ctrl+1…9).
+- Points relative to a game window, so they survive moving the window.
+- Click sequences: go through several points in order.

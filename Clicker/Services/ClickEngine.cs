@@ -13,16 +13,22 @@ namespace Clicker.Services;
 /// </summary>
 public sealed class ClickEngine : IDisposable
 {
-    /// <summary>Marker in dwExtraInfo so our own clicks are recognisable.</summary>
+    /// <summary>Marker in dwExtraInfo so our own input is recognisable.</summary>
     private static readonly IntPtr ClickerSignature = new(0x0C11C4E5);
 
     /// <summary>Upper bound for how long the button is held down in one click.</summary>
     private const int MaxHoldMs = 30;
 
+    /// <summary>Upper bound for the pause between moving the cursor and clicking (lets games register the hover).</summary>
+    private const int MaxSettleMs = 15;
+
     private readonly uint _ownProcessId = (uint)Environment.ProcessId;
     private volatile bool _running;
     private volatile int _intervalMs = 100;
     private volatile MouseButtonKind _button = MouseButtonKind.Left;
+    private volatile ScreenPoint? _target;
+    private volatile bool _moveBeforeEachClick = true;
+    private int _pendingMove; // 1 = move the cursor to the target before the next click
     private Thread? _thread;
     private long _clickCount;
 
@@ -44,11 +50,33 @@ public sealed class ClickEngine : IDisposable
         set => _button = value;
     }
 
+    /// <summary>
+    /// Point to click at. Null = click wherever the cursor is.
+    /// When set, the cursor is moved there on start (and right away if already running).
+    /// </summary>
+    public ScreenPoint? Target
+    {
+        get => _target;
+        set
+        {
+            _target = value;
+            Volatile.Write(ref _pendingMove, 1);
+        }
+    }
+
+    /// <summary>If true, the cursor is put back on <see cref="Target"/> before every click.</summary>
+    public bool MoveBeforeEachClick
+    {
+        get => _moveBeforeEachClick;
+        set => _moveBeforeEachClick = value;
+    }
+
     public void Start()
     {
         if (_running) return;
 
         Interlocked.Exchange(ref _clickCount, 0);
+        Volatile.Write(ref _pendingMove, 1);
         _running = true;
         _thread = new Thread(ClickLoop)
         {
@@ -83,6 +111,21 @@ public sealed class ClickEngine : IDisposable
             {
                 int interval = _intervalMs;
                 MouseButtonKind button = _button;
+
+                // Read the flag before the target, so a point switched right now is never lost.
+                bool pendingMove = Interlocked.Exchange(ref _pendingMove, 0) == 1;
+                ScreenPoint? target = _target;
+                if (target != null && (_moveBeforeEachClick || pendingMove))
+                {
+                    if (MoveCursor(target))
+                    {
+                        // The cursor actually jumped: give the game a moment to notice the hover.
+                        int settleMs = Math.Min(interval / 2, MaxSettleMs);
+                        if (settleMs > 0)
+                            WaitUntil(clock, clock.Elapsed.TotalMilliseconds + settleMs, abortOnStop: true);
+                        if (!_running) break;
+                    }
+                }
 
                 if (!IsCursorOverOwnWindow())
                 {
@@ -130,6 +173,43 @@ public sealed class ClickEngine : IDisposable
     }
 
     /// <summary>
+    /// Moves the cursor to <paramref name="target"/>. Returns false if it was already there.
+    /// Uses SendInput with absolute virtual-desktop coordinates so games see a real mouse move
+    /// (works across multiple monitors), then corrects any rounding error with SetCursorPos.
+    /// </summary>
+    private static bool MoveCursor(ScreenPoint target)
+    {
+        if (GetCursorPos(out POINT current) && current.X == target.X && current.Y == target.Y)
+            return false;
+
+        int left = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        int top = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        int width = Math.Max(1, GetSystemMetrics(SM_CXVIRTUALSCREEN));
+        int height = Math.Max(1, GetSystemMetrics(SM_CYVIRTUALSCREEN));
+
+        // Normalise to 0..65535 across the whole virtual desktop.
+        // Windows maps back with floor(d * size / 65536), so round up to land on the exact pixel.
+        int dx = (int)Math.Ceiling((target.X - left) * 65536.0 / width);
+        int dy = (int)Math.Ceiling((target.Y - top) * 65536.0 / height);
+
+        var inputs = new INPUT[1];
+        inputs[0].type = INPUT_MOUSE;
+        inputs[0].U.mi = new MOUSEINPUT
+        {
+            dx = Math.Clamp(dx, 0, 65535),
+            dy = Math.Clamp(dy, 0, 65535),
+            dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
+            dwExtraInfo = ClickerSignature,
+        };
+        SendInput(1, inputs, Marshal.SizeOf<INPUT>());
+
+        if (!GetCursorPos(out POINT after) || after.X != target.X || after.Y != target.Y)
+            SetCursorPos(target.X, target.Y);
+
+        return true;
+    }
+
+    /// <summary>
     /// Never click on the clicker's own windows (main window, tray menu):
     /// otherwise starting with the mouse over the Start button would immediately press Stop.
     /// </summary>
@@ -156,8 +236,7 @@ public sealed class ClickEngine : IDisposable
             (_, false) => MOUSEEVENTF_LEFTUP,
         };
 
-        // No MOUSEEVENTF_MOVE: the click happens at the current cursor position,
-        // and games that lock the cursor are not disturbed.
+        // No MOUSEEVENTF_MOVE: the click happens at the current cursor position.
         var inputs = new INPUT[1];
         inputs[0].type = INPUT_MOUSE;
         inputs[0].U.mi = new MOUSEINPUT

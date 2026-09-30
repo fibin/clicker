@@ -23,9 +23,12 @@ public sealed class GlobalHotkeyListener : IDisposable
     private IntPtr _keyboardHook;
     private IntPtr _mouseHook;
 
-    private volatile HotkeyBinding? _binding;
+    private volatile HotkeyBinding? _toggleBinding;
+    private volatile HotkeyBinding? _recordBinding;
     private volatile bool _suspended;
-    private bool _keyIsDown;
+
+    // Which virtual keys are currently held (hook thread only) — to ignore auto-repeat.
+    private readonly bool[] _keysDown = new bool[256];
 
     public GlobalHotkeyListener()
     {
@@ -33,13 +36,22 @@ public sealed class GlobalHotkeyListener : IDisposable
         _mouseProc = MouseProc;
     }
 
-    /// <summary>Raised on the hook thread. Handlers must return quickly (marshal to the UI thread).</summary>
-    public event Action? Pressed;
+    /// <summary>Start/stop hotkey pressed. Raised on the hook thread — handlers must return quickly.</summary>
+    public event Action? TogglePressed;
 
-    public HotkeyBinding? Binding
+    /// <summary>"Save point" hotkey pressed, with the cursor position at that moment. Raised on the hook thread.</summary>
+    public event Action<ScreenPoint>? RecordPressed;
+
+    public HotkeyBinding? ToggleBinding
     {
-        get => _binding;
-        set { _binding = value; _keyIsDown = false; }
+        get => _toggleBinding;
+        set => _toggleBinding = value;
+    }
+
+    public HotkeyBinding? RecordBinding
+    {
+        get => _recordBinding;
+        set => _recordBinding = value;
     }
 
     /// <summary>While true, key presses are ignored (used while the user records a new hotkey).</summary>
@@ -155,24 +167,46 @@ public sealed class GlobalHotkeyListener : IDisposable
 
     private void HandleKey(int vk, bool down, bool up)
     {
-        HotkeyBinding? binding = _binding;
-        if (binding == null || vk != binding.VirtualKey) return;
+        if (vk <= 0 || vk >= _keysDown.Length) return;
 
         if (up)
         {
-            _keyIsDown = false;
+            _keysDown[vk] = false;
             return;
         }
 
         // Ignore auto-repeat while the key is held.
-        if (!down || _keyIsDown) return;
-        _keyIsDown = true;
+        if (!down || _keysDown[vk]) return;
+        _keysDown[vk] = true;
 
-        if (_suspended || !ModifiersPressed(binding)) return;
+        if (_suspended) return;
 
         try
         {
-            Pressed?.Invoke();
+            HotkeyBinding? toggle = _toggleBinding;
+            HotkeyBinding? record = _recordBinding;
+            bool toggleHit = toggle != null && toggle.VirtualKey == vk && ModifiersPressed(toggle);
+            bool recordHit = record != null && record.VirtualKey == vk && ModifiersPressed(record);
+
+            // Same key in both (e.g. F6 and Ctrl+F6): the combination with more modifiers wins.
+            if (toggleHit && recordHit)
+            {
+                if (record!.ModifierCount > toggle!.ModifierCount)
+                    toggleHit = false;
+                else
+                    recordHit = false;
+            }
+
+            if (toggleHit)
+            {
+                TogglePressed?.Invoke();
+            }
+            else if (recordHit)
+            {
+                // Read the position right now, on the hook thread, before the mouse moves on.
+                if (GetCursorPos(out POINT point))
+                    RecordPressed?.Invoke(new ScreenPoint(point.X, point.Y));
+            }
         }
         catch
         {
