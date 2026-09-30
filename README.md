@@ -42,14 +42,15 @@ Settings and patterns are stored in `%APPDATA%\Clicker`, so replacing the exe wi
 **Online games with anti-cheat** (Vanguard, EAC, BattlEye, etc.) may detect synthetic input and ban the account. Use it in single-player games.
 
 ## Releases (for maintainers)
-Every push to `main` is built by GitHub Actions (`.github/workflows/build.yml`); the exe files are attached to the workflow run as *Artifacts*. To publish a release:
+Every push to `main` is built by GitHub Actions (`.github/workflows/build.yml`); the exe files are attached to the workflow run as *Artifacts*.
 
-```
-git tag v1.1.0
-git push origin v1.1.0
+To publish a new release, raise the version in `Clicker/Clicker.csproj`:
+
+```xml
+<VersionPrefix>1.1.0</VersionPrefix>
 ```
 
-The workflow builds the app with that version number and creates a GitHub Release with both exe files.
+and push to `main`. The workflow sees that `v1.1.0` isn't released yet, builds the app with that version, creates the `v1.1.0` tag and a GitHub Release with both exe files. (Pushing a `v*` tag yourself works too.)
 
 ## Build and run
 Requires the .NET SDK 8 or newer (`dotnet --version`).

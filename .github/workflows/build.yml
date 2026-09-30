@@ -1,7 +1,9 @@
 name: Build & Release
 
-# Every push to main builds the app (downloadable from the workflow run's "Artifacts").
-# Pushing a tag like v1.2.0 also publishes a GitHub Release with ready-to-run exe files.
+# Every push to main builds the app (the exe files are attached to the run as "Artifacts").
+# A GitHub Release with ready-to-run exe files is published automatically when
+#   - the <VersionPrefix> in Clicker/Clicker.csproj is a version that has no release yet, or
+#   - a tag like v1.2.0 is pushed.
 on:
   push:
     branches: [main]
@@ -18,6 +20,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags are needed to see which versions are already released
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -27,15 +31,24 @@ jobs:
         id: version
         shell: pwsh
         run: |
+          [xml]$project = Get-Content Clicker/Clicker.csproj
+          $prefix = "$($project.Project.PropertyGroup.VersionPrefix)".Trim()
+          $release = "false"
+
           if ("${{ github.ref_type }}" -eq "tag") {
             $version = "${{ github.ref_name }}".TrimStart("v")
-            $buildArgs = "-p:Version=$version"
+            $release = "true"
+          } elseif ("${{ github.event_name }}" -eq "push" -and "${{ github.ref_name }}" -eq "main" -and -not (git tag -l "v$prefix")) {
+            $version = $prefix
+            $release = "true"
           } else {
-            $version = "dev-${{ github.run_number }}"
-            $buildArgs = "-p:VersionSuffix=dev.${{ github.run_number }}"
+            $version = "$prefix-dev.${{ github.run_number }}"
           }
+
+          Write-Host "Version: $version, release: $release"
           "name=$version" >> $env:GITHUB_OUTPUT
-          "args=$buildArgs" >> $env:GITHUB_OUTPUT
+          "args=-p:Version=$version" >> $env:GITHUB_OUTPUT
+          "release=$release" >> $env:GITHUB_OUTPUT
 
       # Main download: one exe that runs on any Windows 10/11 x64 PC, no .NET installation needed.
       - name: Publish portable exe (self-contained)
@@ -73,8 +86,11 @@ jobs:
           path: dist/*
 
       - name: Publish GitHub Release
-        if: github.ref_type == 'tag'
+        if: steps.version.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          name: Clicker ${{ steps.version.outputs.name }}
           files: dist/*
           generate_release_notes: true
