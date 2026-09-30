@@ -37,6 +37,33 @@ public sealed class AppSettings
     /// <summary>Put the cursor back on the active point before every click (otherwise only once on start).</summary>
     public bool MoveBeforeEachClick { get; set; } = true;
 
+    // ---- Status overlay ----
+
+    public const int MinOverlayOpacity = 10;
+    public const int MinOverlayScale = 50;
+    public const int MaxOverlayScale = 250;
+
+    public bool OverlayEnabled { get; set; } = true;
+
+    /// <summary>Opacity in percent (10..100).</summary>
+    public int OverlayOpacity { get; set; } = 85;
+
+    /// <summary>Size in percent (50..250).</summary>
+    public int OverlayScale { get; set; } = 100;
+
+    /// <summary>Blink while clicking / playing / recording.</summary>
+    public bool OverlayBlink { get; set; } = true;
+
+    public BlinkSpeed OverlayBlinkSpeed { get; set; } = BlinkSpeed.Normal;
+
+    /// <summary>Also show the overlay while nothing is running.</summary>
+    public bool OverlayShowWhenStopped { get; set; }
+
+    /// <summary>Top-left corner in WPF units (DIPs). Null = default place (top-right of the main screen).</summary>
+    public double? OverlayLeft { get; set; }
+
+    public double? OverlayTop { get; set; }
+
     /// <summary>"uk" or "en". Empty = pick from the Windows language on first start.</summary>
     public string Language { get; set; } = "";
 }

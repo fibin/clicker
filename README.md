@@ -8,7 +8,8 @@ An auto clicker for Windows 10/11, built with .NET 8 and WPF.
 - **Mouse button** — left, right or middle.
 - **Saved screen points** — hover over a spot and press `F7` (configurable) to save the cursor position as a named point. Add as many as you need; each has an editable name and an on/off switch, and only one can be on at a time. When a point is on, the cursor jumps there on start and the clicks land on it (optionally the cursor is put back on the point before every click). With all points off, clicks go to the current cursor position.
 - **Pattern recording** — press `F8` (configurable), do any mouse moves, clicks, wheel scrolls and (optionally) key presses, then press `F8` again. The recording is saved as a named pattern. Switch a pattern on and `F6` replays it in a loop with the original timing, instead of auto-clicking — set the number of repeats (0 = endless) and the pause between them. Keys and buttons still held when playback stops are always released.
-- **Tabs**: Auto-click (interval, button, points), Patterns, Hotkeys.
+- **Status overlay** — a small always-on-top badge that shows whether auto-clicking (green), pattern playback (blue) or recording (red) is on, with the click count / loop number / recording time. It is click-through, so it never gets in the way of the game. Configurable: on/off, opacity, size (50–250%), blinking while active (slow / normal / fast), whether to show it when everything is stopped, and its position — press "Move overlay", drag it anywhere, press "Done".
+- **Tabs**: Auto-click (interval, button, points), Patterns, Hotkeys, Overlay.
 - **Close button minimizes to the tray.** Left-click the tray icon to open the window, right-click for the Open / Start-Stop / Exit menu. A green dot on the icon shows that the clicker is running.
 - **Ukrainian and English UI**, switchable on the fly. On first launch the language follows the Windows language.
 - Settings are saved to `%APPDATA%\Clicker\settings.json`, patterns to `%APPDATA%\Clicker\patterns.json`.
@@ -24,6 +25,8 @@ An auto clicker for Windows 10/11, built with .NET 8 and WPF.
 - Timing is accurate to 1 ms (`timeBeginPeriod(1)` + `Stopwatch`).
 
 **If the game runs as administrator**, Windows (UIPI) blocks input from regular programs. Use the "Restart as administrator" button.
+
+**The overlay is not visible over games in exclusive fullscreen** — switch the game to borderless window mode.
 
 **Online games with anti-cheat** (Vanguard, EAC, BattlEye, etc.) may detect synthetic input and ban the account. Use it in single-player games.
 
@@ -47,6 +50,8 @@ Clicker/
   MainWindow.Hotkeys.cs             — hotkey dispatch and recording new hotkeys
   MainWindow.Points.cs              — saved screen points
   MainWindow.Patterns.cs            — pattern recording, list, playback settings
+  MainWindow.Overlay.cs             — status overlay settings
+  OverlayWindow.xaml(.cs)           — the click-through always-on-top status badge
   Localization/Loc.cs               — UA/EN strings, live language switching
   Localization/TrExtension.cs       — {loc:Tr Key} markup extension for XAML
   Models/                           — settings, hotkeys, points, patterns

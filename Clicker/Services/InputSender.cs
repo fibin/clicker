@@ -113,6 +113,9 @@ internal static class InputSender
         IntPtr hwnd = WindowFromPoint(new POINT { X = x, Y = y });
         if (hwnd == IntPtr.Zero) return false;
 
+        // The click-through status overlay doesn't count: clicks pass through it.
+        if ((GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_TRANSPARENT) != 0) return false;
+
         GetWindowThreadProcessId(hwnd, out uint processId);
         return processId == OwnProcessId;
     }

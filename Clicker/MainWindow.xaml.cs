@@ -70,6 +70,9 @@ public partial class MainWindow : Window
         SelectByTag(ButtonCombo, settings.Button.ToString());
         SelectByTag(LanguageCombo, Loc.Instance.Language);
 
+        // Status overlay
+        InitOverlay();
+
         // Tray
         _tray.ShowRequested += ShowFromTray;
         _tray.ToggleRequested += TrayToggle;
@@ -219,6 +222,8 @@ public partial class MainWindow : Window
         {
             ClickCountText.Text = "";
         }
+
+        UpdateOverlay();
     }
 
     /// <summary>Second status line: what the next start will do.</summary>
@@ -312,13 +317,18 @@ public partial class MainWindow : Window
     /// <summary>Updates texts that are built in code (XAML texts update by themselves through {loc:Tr}).</summary>
     private void RefreshTexts()
     {
-        // The closed ComboBox caches the selected item's text — reselect to pick up the new language.
-        int selected = ButtonCombo.SelectedIndex;
+        // A closed ComboBox caches the selected item's text — reselect to pick up the new language.
         bool wasInitialized = _initialized;
         _initialized = false;
-        ButtonCombo.SelectedIndex = -1;
-        ButtonCombo.SelectedIndex = selected;
+        foreach (ComboBox combo in new[] { ButtonCombo, BlinkSpeedCombo })
+        {
+            int selected = combo.SelectedIndex;
+            combo.SelectedIndex = -1;
+            combo.SelectedIndex = selected;
+        }
+
         _initialized = wasInitialized;
+        MoveOverlayButton.Content = Loc.Instance[_overlayMoveMode ? "MoveOverlayDone" : "MoveOverlay"];
 
         AdminPanel.Visibility = _isAdmin ? Visibility.Collapsed : Visibility.Visible;
         AdminStatusText.Visibility = _isAdmin ? Visibility.Visible : Visibility.Collapsed;
@@ -372,6 +382,7 @@ public partial class MainWindow : Window
             // The X button hides the window to the tray; the app keeps running.
             e.Cancel = true;
             if (_capturing != null) EndHotkeyCapture(null);
+            if (_overlayMoveMode) SetOverlayMoveMode(false);
             Hide();
 
             if (!_trayHintShown)
@@ -396,6 +407,7 @@ public partial class MainWindow : Window
         _player.Dispose();
         _hotkeys.Dispose();
         _tray.Dispose();
+        _overlay.Close();
         SaveSettings();
         SavePatterns();
         base.OnClosed(e);

@@ -90,6 +90,16 @@ public static class SettingsStore
             activeSeen |= point.IsActive;
         }
 
+        s.OverlayOpacity = Math.Clamp(s.OverlayOpacity, AppSettings.MinOverlayOpacity, 100);
+        s.OverlayScale = Math.Clamp(s.OverlayScale, AppSettings.MinOverlayScale, AppSettings.MaxOverlayScale);
+        if (!Enum.IsDefined(s.OverlayBlinkSpeed))
+            s.OverlayBlinkSpeed = BlinkSpeed.Normal;
+        if (s.OverlayLeft is double left && s.OverlayTop is double top && (double.IsNaN(left) || double.IsNaN(top)))
+        {
+            s.OverlayLeft = null;
+            s.OverlayTop = null;
+        }
+
         if (!Enum.IsDefined(s.Button))
             s.Button = MouseButtonKind.Left;
         s.Language ??= "";

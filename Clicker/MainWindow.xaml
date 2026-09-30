@@ -57,7 +57,7 @@
             </StackPanel>
         </Border>
 
-        <TabControl x:Name="Tabs" Height="500" Margin="0,6,0,0">
+        <TabControl x:Name="Tabs" Height="500" Margin="0,6,0,0" SelectionChanged="Tabs_SelectionChanged">
 
             <!-- ============================== Auto-click ============================== -->
             <TabItem Header="{loc:Tr TabClicker}">
@@ -300,6 +300,81 @@
                         </StackPanel>
                         <TextBlock x:Name="AdminStatusText" Text="{loc:Tr RunningAsAdmin}" Style="{StaticResource Hint}"
                                    Margin="0,4,0,0" Visibility="Collapsed" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <!-- ============================== Overlay ============================== -->
+            <TabItem x:Name="OverlayTab" Header="{loc:Tr TabOverlay}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <CheckBox x:Name="OverlayEnabledCheck" Content="{loc:Tr OverlayEnabled}" FontWeight="SemiBold"
+                                          Click="OverlayOption_Click" />
+                                <CheckBox x:Name="OverlayShowStoppedCheck" Content="{loc:Tr OverlayShowWhenStopped}"
+                                          Margin="0,8,0,0" Click="OverlayOption_Click" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="50" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{loc:Tr OverlayOpacity}" VerticalAlignment="Center" />
+                                    <Slider x:Name="OverlayOpacitySlider" Grid.Column="1" Minimum="10" Maximum="100"
+                                            TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                            ValueChanged="OverlaySlider_ValueChanged" />
+                                    <TextBlock x:Name="OverlayOpacityText" Grid.Column="2" TextAlignment="Right"
+                                               VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" />
+                                </Grid>
+                                <Grid Margin="0,10,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="110" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="50" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{loc:Tr OverlaySize}" VerticalAlignment="Center" />
+                                    <Slider x:Name="OverlayScaleSlider" Grid.Column="1" Minimum="50" Maximum="250"
+                                            TickFrequency="10" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                                            ValueChanged="OverlaySlider_ValueChanged" />
+                                    <TextBlock x:Name="OverlayScaleText" Grid.Column="2" TextAlignment="Right"
+                                               VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}" />
+                                </Grid>
+
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox x:Name="OverlayBlinkCheck" Content="{loc:Tr OverlayBlink}"
+                                              VerticalAlignment="Center" Click="OverlayOption_Click" />
+                                    <ComboBox x:Name="BlinkSpeedCombo" Grid.Column="1" Width="130"
+                                              ToolTip="{loc:Tr BlinkSpeed}" SelectionChanged="BlinkSpeedCombo_SelectionChanged">
+                                        <ComboBoxItem Tag="Slow" Content="{loc:Tr BlinkSlow}" />
+                                        <ComboBoxItem Tag="Normal" Content="{loc:Tr BlinkNormal}" />
+                                        <ComboBoxItem Tag="Fast" Content="{loc:Tr BlinkFast}" />
+                                    </ComboBox>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button x:Name="MoveOverlayButton" Style="{StaticResource FlatButton}" Focusable="False"
+                                            Click="MoveOverlayButton_Click" />
+                                    <Button Style="{StaticResource SecondaryButton}" Margin="10,0,0,0" Focusable="False"
+                                            Content="{loc:Tr ResetOverlayPosition}" Click="ResetOverlayPosition_Click" />
+                                </StackPanel>
+                                <TextBlock Text="{loc:Tr OverlayMoveHint}" Style="{StaticResource Hint}" Margin="0,8,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="{loc:Tr OverlayHint}" Style="{StaticResource Hint}" Margin="2,0,2,0" />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
