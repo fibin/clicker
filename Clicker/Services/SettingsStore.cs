@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Clicker.Models;
@@ -51,15 +52,33 @@ public static class SettingsStore
         }
     }
 
+    /// <summary>Returns <paramref name="current"/> if usable, otherwise the first free F-key starting at the default.</summary>
+    private static HotkeyBinding PickHotkey(HotkeyBinding? current, HotkeyBinding fallback, params HotkeyBinding[] taken)
+    {
+        bool IsFree(HotkeyBinding b) => b.IsValid && !taken.Any(t => t.SameAs(b));
+
+        if (current != null && IsFree(current)) return current;
+        if (IsFree(fallback)) return fallback;
+
+        for (int vk = 0x70; vk <= 0x7B; vk++) // F1..F12
+        {
+            var candidate = new HotkeyBinding { VirtualKey = vk };
+            if (IsFree(candidate)) return candidate;
+        }
+
+        return fallback;
+    }
+
     private static AppSettings Sanitize(AppSettings s)
     {
         s.IntervalMs = Math.Clamp(s.IntervalMs, AppSettings.MinIntervalMs, AppSettings.MaxIntervalMs);
-        if (s.Hotkey == null || !s.Hotkey.IsValid)
-            s.Hotkey = HotkeyBinding.DefaultToggle;
-        if (s.RecordHotkey == null || !s.RecordHotkey.IsValid || s.RecordHotkey.SameAs(s.Hotkey))
-            s.RecordHotkey = s.Hotkey.SameAs(HotkeyBinding.DefaultRecord)
-                ? HotkeyBinding.DefaultToggle
-                : HotkeyBinding.DefaultRecord;
+        // Every action needs a valid hotkey, and no two actions may share one.
+        s.Hotkey = PickHotkey(s.Hotkey, HotkeyBinding.DefaultToggle);
+        s.RecordHotkey = PickHotkey(s.RecordHotkey, HotkeyBinding.DefaultRecord, s.Hotkey);
+        s.PatternHotkey = PickHotkey(s.PatternHotkey, HotkeyBinding.DefaultPattern, s.Hotkey, s.RecordHotkey);
+
+        s.PatternRepeatCount = Math.Clamp(s.PatternRepeatCount, 0, AppSettings.MaxRepeatCount);
+        s.PatternLoopDelayMs = Math.Clamp(s.PatternLoopDelayMs, 0, AppSettings.MaxLoopDelayMs);
 
         s.Points ??= new List<SavedPoint>();
         s.Points.RemoveAll(p => p == null);

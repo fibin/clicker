@@ -4,11 +4,9 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Media;
 using System.Security.Principal;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -18,25 +16,26 @@ using Clicker.Services;
 
 namespace Clicker;
 
+/// <summary>
+/// Main window. Split into partial files by feature:
+/// MainWindow.Hotkeys.cs, MainWindow.Points.cs, MainWindow.Patterns.cs.
+/// </summary>
 public partial class MainWindow : Window
 {
-    private enum HotkeyKind
-    {
-        None,
-        Toggle,
-        Record,
-    }
+    private static readonly Brush IdleDotBrush = new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF));
 
     private readonly AppSettings _settings;
     private readonly ClickEngine _engine = new();
+    private readonly PatternPlayer _player = new();
+    private readonly PatternRecorder _recorder = new();
     private readonly GlobalHotkeyListener _hotkeys = new();
     private readonly TrayIcon _tray = new();
-    private readonly DispatcherTimer _counterTimer;
+    private readonly DispatcherTimer _statusTimer;
     private readonly ObservableCollection<SavedPoint> _points;
+    private readonly ObservableCollection<Pattern> _patterns;
     private readonly bool _isAdmin;
 
     private bool _initialized;
-    private HotkeyKind _capturing = HotkeyKind.None;
     private bool _intervalValid = true;
     private bool _exitRequested;
     private bool _trayHintShown;
@@ -53,6 +52,14 @@ public partial class MainWindow : Window
         PointsList.ItemsSource = _points;
         MoveEachClickCheck.IsChecked = settings.MoveBeforeEachClick;
 
+        // Patterns
+        _patterns = new ObservableCollection<Pattern>(PatternStore.Load());
+        PatternsList.ItemsSource = _patterns;
+        RecordKeyboardCheck.IsChecked = settings.RecordKeyboard;
+        RepeatsBox.Text = settings.PatternRepeatCount.ToString(CultureInfo.InvariantCulture);
+        LoopDelayBox.Text = settings.PatternLoopDelayMs.ToString(CultureInfo.InvariantCulture);
+        _player.Finished += () => Dispatcher.BeginInvoke(new Action(OnPlaybackFinished));
+
         // Clicker engine
         _engine.IntervalMs = settings.IntervalMs;
         _engine.Button = settings.Button;
@@ -65,14 +72,16 @@ public partial class MainWindow : Window
 
         // Tray
         _tray.ShowRequested += ShowFromTray;
-        _tray.ToggleRequested += ToggleClicking;
+        _tray.ToggleRequested += TrayToggle;
         _tray.ExitRequested += ExitApplication;
 
         // Global hotkeys (events arrive on the hook thread -> marshal to the UI thread)
-        _hotkeys.ToggleBinding = settings.Hotkey;
-        _hotkeys.RecordBinding = settings.RecordHotkey;
-        _hotkeys.TogglePressed += () => Dispatcher.BeginInvoke(new Action(ToggleClicking));
-        _hotkeys.RecordPressed += position => Dispatcher.BeginInvoke(new Action(() => AddPoint(position)));
+        _hotkeys.SetBinding(HotkeyAction.Toggle, settings.Hotkey);
+        _hotkeys.SetBinding(HotkeyAction.SavePoint, settings.RecordHotkey);
+        _hotkeys.SetBinding(HotkeyAction.RecordPattern, settings.PatternHotkey);
+        _hotkeys.Recorder = _recorder;
+        _hotkeys.Pressed += (action, position) =>
+            Dispatcher.BeginInvoke(new Action(() => OnHotkeyPressed(action, position)));
         try
         {
             _hotkeys.Start();
@@ -83,66 +92,151 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
-        // Click counter refresh (the engine can click 1000 times/s — don't update the UI per click)
-        _counterTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
-        _counterTimer.Tick += (_, _) => UpdateClickCount();
+        // Live status refresh (click counter, recording time, loop number)
+        _statusTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
+        _statusTimer.Tick += (_, _) => UpdateStatusDetails();
 
         Loc.Instance.LanguageChanged += RefreshTexts;
 
         _initialized = true;
-        ApplyTarget();
         RefreshTexts();
     }
 
     // ------------------------------------------------------------------ Start / stop
 
-    private void ToggleClicking()
+    private bool IsRunning => _engine.IsRunning || _player.IsRunning;
+
+    /// <summary>Start/stop hotkey, Start button and tray menu: plays the active pattern if there is one, otherwise auto-clicks.</summary>
+    private void ToggleRunning()
     {
-        if (_engine.IsRunning)
+        if (_recorder.IsRecording) return;
+
+        if (IsRunning)
         {
-            _engine.Stop();
-            _counterTimer.Stop();
+            StopAll();
         }
         else
         {
-            if (!_intervalValid) return;
-            _engine.Start();
-            _counterTimer.Start();
+            Pattern? pattern = ActivePattern;
+            if (pattern != null)
+                StartPattern(pattern);
+            else if (_intervalValid)
+                _engine.Start();
         }
 
         UpdateRunningState();
     }
 
-    private void StartStopButton_Click(object sender, RoutedEventArgs e) => ToggleClicking();
+    /// <summary>Tray menu Start/Stop item: also ends a recording in progress.</summary>
+    private void TrayToggle()
+    {
+        if (_recorder.IsRecording)
+            FinishRecording();
+        else
+            ToggleRunning();
+    }
 
+    private void StopAll()
+    {
+        _engine.Stop();
+        _player.Stop();
+    }
+
+    private void StartStopButton_Click(object sender, RoutedEventArgs e) => ToggleRunning();
+
+    /// <summary>Refreshes everything that depends on idle / clicking / playing / recording.</summary>
     private void UpdateRunningState()
     {
-        bool running = _engine.IsRunning;
         Loc loc = Loc.Instance;
+        bool recording = _recorder.IsRecording;
+        bool running = IsRunning;
 
         string actionText = loc[running ? "Stop" : "Start"];
         StartStopButton.Content = actionText + "   (" + _settings.Hotkey.ToDisplayString() + ")";
         StartStopButton.Background = (Brush)FindResource(running ? "StopBrush" : "StartBrush");
-        StartStopButton.IsEnabled = running || _intervalValid;
+        StartStopButton.IsEnabled = !recording && (running || CanStart());
 
-        StatusDot.Fill = running ? (Brush)FindResource("StartBrush") : new SolidColorBrush(Color.FromRgb(0x9C, 0xA3, 0xAF));
-        StatusText.Text = loc[running ? "StatusRunning" : "StatusStopped"];
-        UpdateClickCount();
+        if (recording)
+        {
+            StatusDot.Fill = (Brush)FindResource("StopBrush");
+            StatusText.Text = loc["StatusRecording"];
+        }
+        else if (running)
+        {
+            StatusDot.Fill = (Brush)FindResource("StartBrush");
+            StatusText.Text = loc[_player.IsRunning ? "StatusPlaying" : "StatusRunning"];
+        }
+        else
+        {
+            StatusDot.Fill = IdleDotBrush;
+            StatusText.Text = loc["StatusStopped"];
+        }
+
+        RecordPatternButton.Content = loc[recording ? "StopRecording" : "RecordPattern"]
+                                      + "   (" + _settings.PatternHotkey.ToDisplayString() + ")";
+        RecordPatternButton.Background = (Brush)FindResource(recording ? "StopBrush" : "AccentBrush");
+
+        if (recording || running)
+            _statusTimer.Start();
+        else
+            _statusTimer.Stop();
+
+        UpdateStatusDetails();
+        UpdateTargetText();
 
         _tray.Update(
-            running,
+            running || recording,
             loc.Format("TrayTooltip", StatusText.Text),
             loc["TrayShow"],
-            actionText,
+            recording ? loc["StopRecording"] : actionText,
             loc["TrayExit"]);
     }
 
-    private void UpdateClickCount() =>
-        ClickCountText.Text = Loc.Instance.Format("ClickCount", _engine.ClickCount.ToString("N0", CultureInfo.CurrentCulture));
+    private bool CanStart() => ActivePattern != null ? _patternNumbersValid : _intervalValid;
+
+    /// <summary>Right side of the status line: clicks, loop number or recording time.</summary>
+    private void UpdateStatusDetails()
+    {
+        Loc loc = Loc.Instance;
+
+        if (_recorder.IsRecording)
+        {
+            ClickCountText.Text = loc.Format("RecordingProgress",
+                _recorder.Elapsed.TotalSeconds.ToString("0.0", CultureInfo.CurrentCulture), _recorder.EventCount);
+        }
+        else if (_player.IsRunning)
+        {
+            int current = _player.LoopsDone + 1;
+            ClickCountText.Text = _player.TotalLoops == 0
+                ? loc.Format("LoopProgressEndless", current)
+                : loc.Format("LoopProgress", Math.Min(current, _player.TotalLoops), _player.TotalLoops);
+        }
+        else if (_engine.IsRunning || ActivePattern == null)
+        {
+            ClickCountText.Text = loc.Format("ClickCount", _engine.ClickCount.ToString("N0", CultureInfo.CurrentCulture));
+        }
+        else
+        {
+            ClickCountText.Text = "";
+        }
+    }
+
+    /// <summary>Second status line: what the next start will do.</summary>
+    private void UpdateTargetText()
+    {
+        Pattern? pattern = ActivePattern;
+        SavedPoint? point = _points.FirstOrDefault(p => p.IsActive);
+
+        TargetText.Text = pattern != null
+            ? Loc.Instance.Format("TargetPattern", pattern.Name)
+            : point != null
+                ? Loc.Instance.Format("TargetPoint", point.Name, point.CoordinatesText)
+                : Loc.Instance["TargetCursor"];
+    }
 
     // ------------------------------------------------------------------ Interval
 
-    private void IntervalBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    private void DigitsOnly_PreviewTextInput(object sender, TextCompositionEventArgs e)
     {
         foreach (char c in e.Text)
         {
@@ -168,9 +262,7 @@ public partial class MainWindow : Window
 
     private void ValidateInterval()
     {
-        _intervalValid = int.TryParse(IntervalBox.Text, NumberStyles.None, CultureInfo.InvariantCulture, out int value)
-                         && value >= AppSettings.MinIntervalMs
-                         && value <= AppSettings.MaxIntervalMs;
+        _intervalValid = TryParseNumber(IntervalBox.Text, AppSettings.MinIntervalMs, AppSettings.MaxIntervalMs, out int value);
 
         if (_intervalValid)
         {
@@ -191,7 +283,7 @@ public partial class MainWindow : Window
             IntervalBox.BorderBrush = (Brush)FindResource("ErrorBrush");
         }
 
-        StartStopButton.IsEnabled = _engine.IsRunning || _intervalValid;
+        StartStopButton.IsEnabled = !_recorder.IsRecording && (IsRunning || CanStart());
     }
 
     // ------------------------------------------------------------------ Mouse button
@@ -204,263 +296,6 @@ public partial class MainWindow : Window
         _settings.Button = button;
         _engine.Button = button;
         SaveSettings();
-    }
-
-    // ------------------------------------------------------------------ Hotkeys
-
-    private void ChangeToggleHotkeyButton_Click(object sender, RoutedEventArgs e) => ToggleCapture(HotkeyKind.Toggle);
-
-    private void ChangeRecordHotkeyButton_Click(object sender, RoutedEventArgs e) => ToggleCapture(HotkeyKind.Record);
-
-    private void ToggleCapture(HotkeyKind kind)
-    {
-        if (_capturing == kind)
-        {
-            EndHotkeyCapture(null);
-            return;
-        }
-
-        _capturing = kind;
-        _hotkeys.Suspended = true;
-        HotkeyErrorText.Visibility = Visibility.Collapsed;
-        Keyboard.ClearFocus();
-        Focus();
-        RefreshHotkeyUi();
-    }
-
-    /// <summary>Finishes recording. Returns false (and keeps waiting) if the combination belongs to the other action.</summary>
-    private bool EndHotkeyCapture(HotkeyBinding? newBinding)
-    {
-        if (newBinding != null)
-        {
-            HotkeyBinding other = _capturing == HotkeyKind.Toggle ? _settings.RecordHotkey : _settings.Hotkey;
-            if (newBinding.SameAs(other))
-            {
-                HotkeyErrorText.Visibility = Visibility.Visible;
-                return false;
-            }
-
-            if (_capturing == HotkeyKind.Toggle)
-            {
-                _settings.Hotkey = newBinding;
-                _hotkeys.ToggleBinding = newBinding;
-            }
-            else if (_capturing == HotkeyKind.Record)
-            {
-                _settings.RecordHotkey = newBinding;
-                _hotkeys.RecordBinding = newBinding;
-            }
-
-            SaveSettings();
-        }
-
-        _capturing = HotkeyKind.None;
-        _hotkeys.Suspended = false;
-        HotkeyErrorText.Visibility = Visibility.Collapsed;
-        RefreshHotkeyUi();
-        RefreshPointsUi();
-        UpdateRunningState();
-        return true;
-    }
-
-    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        Key key = e.Key == Key.System ? e.SystemKey : e.Key;
-
-        if (_capturing == HotkeyKind.None)
-        {
-            // The global hook already handles hotkeys. Swallow them here so that e.g. Space or Enter
-            // don't also press a focused control. Text boxes still get their keys.
-            int pressedVk = KeyInterop.VirtualKeyFromKey(key);
-            bool isHotkey = pressedVk == _settings.Hotkey.VirtualKey || pressedVk == _settings.RecordHotkey.VirtualKey;
-            if (isHotkey && Keyboard.FocusedElement is not TextBox)
-                e.Handled = true;
-            return;
-        }
-
-        e.Handled = true;
-
-        if (key == Key.Escape)
-        {
-            EndHotkeyCapture(null);
-            return;
-        }
-
-        // Wait for a real key while only modifiers are held.
-        if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or Key.LeftShift
-            or Key.RightShift or Key.LWin or Key.RWin or Key.None or Key.ImeProcessed or Key.DeadCharProcessed)
-            return;
-
-        int vk = KeyInterop.VirtualKeyFromKey(key);
-        if (vk == 0) return;
-
-        EndHotkeyCapture(CreateBinding(vk));
-    }
-
-    private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
-    {
-        if (_capturing == HotkeyKind.None) return;
-
-        int vk = e.ChangedButton switch
-        {
-            MouseButton.XButton1 => HotkeyBinding.VkMouse4,
-            MouseButton.XButton2 => HotkeyBinding.VkMouse5,
-            MouseButton.Middle => HotkeyBinding.VkMiddleMouse,
-            _ => 0,
-        };
-
-        // Left/right clicks keep working normally (e.g. to press "Cancel").
-        if (vk == 0) return;
-
-        e.Handled = true;
-        EndHotkeyCapture(CreateBinding(vk));
-    }
-
-    private static HotkeyBinding CreateBinding(int vk)
-    {
-        ModifierKeys mods = Keyboard.Modifiers;
-        return new HotkeyBinding
-        {
-            VirtualKey = vk,
-            Ctrl = mods.HasFlag(ModifierKeys.Control),
-            Alt = mods.HasFlag(ModifierKeys.Alt),
-            Shift = mods.HasFlag(ModifierKeys.Shift),
-            Win = mods.HasFlag(ModifierKeys.Windows),
-        };
-    }
-
-    private void RefreshHotkeyUi()
-    {
-        UpdateHotkeyRow(HotkeyKind.Toggle, _settings.Hotkey, ToggleHotkeyText, ToggleHotkeyBox, ChangeToggleHotkeyButton);
-        UpdateHotkeyRow(HotkeyKind.Record, _settings.RecordHotkey, RecordHotkeyText, RecordHotkeyBox, ChangeRecordHotkeyButton);
-    }
-
-    private void UpdateHotkeyRow(HotkeyKind kind, HotkeyBinding binding, TextBlock text, Border box, Button button)
-    {
-        Loc loc = Loc.Instance;
-        bool capturingThis = _capturing == kind;
-
-        text.Text = capturingThis ? loc["PressKey"] : binding.ToDisplayString();
-        box.BorderBrush = (Brush)FindResource(capturingThis ? "AccentBrush" : "CardBorderBrush");
-        button.Content = loc[capturingThis ? "Cancel" : "Change"];
-    }
-
-    // ------------------------------------------------------------------ Screen points
-
-    /// <summary>Called when the "save point" hotkey is pressed: stores the cursor position and makes it the active point.</summary>
-    private void AddPoint(ScreenPoint position)
-    {
-        var point = new SavedPoint
-        {
-            Name = NextPointName(),
-            X = position.X,
-            Y = position.Y,
-        };
-
-        foreach (SavedPoint other in _points)
-            other.IsActive = false;
-        point.IsActive = true;
-
-        _points.Add(point);
-        SaveSettings();
-        ApplyTarget();
-        RefreshPointsUi();
-
-        // Feedback — the window is usually hidden behind the game.
-        SystemSounds.Asterisk.Play();
-        if (!IsVisible || WindowState == WindowState.Minimized)
-            _tray.ShowBalloon(Loc.Instance["AppTitle"], Loc.Instance.Format("PointSaved", point.Name, point.CoordinatesText));
-    }
-
-    private string NextPointName()
-    {
-        int number = _points.Count + 1;
-        while (_points.Any(p => p.Name == Loc.Instance.Format("PointName", number)))
-            number++;
-        return Loc.Instance.Format("PointName", number);
-    }
-
-    private void PointToggle_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not ToggleButton { DataContext: SavedPoint point }) return;
-
-        // Radio-like behaviour: turning one point on turns the others off. Turning it off leaves none active.
-        if (point.IsActive)
-        {
-            foreach (SavedPoint other in _points)
-            {
-                if (!ReferenceEquals(other, point))
-                    other.IsActive = false;
-            }
-        }
-
-        SaveSettings();
-        ApplyTarget();
-    }
-
-    private void DeletePoint_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { DataContext: SavedPoint point }) return;
-
-        _points.Remove(point);
-        SaveSettings();
-        ApplyTarget();
-        RefreshPointsUi();
-    }
-
-    private void PointName_LostFocus(object sender, RoutedEventArgs e)
-    {
-        if (sender is not TextBox { DataContext: SavedPoint point } textBox) return;
-
-        // Push the typed name into the point first — this handler may run before the binding does.
-        textBox.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
-        if (string.IsNullOrWhiteSpace(point.Name))
-            point.Name = NextPointName();
-        else
-            point.Name = point.Name.Trim();
-
-        SaveSettings();
-        ApplyTarget(); // refreshes the target line with the new name
-    }
-
-    private void PointName_KeyDown(object sender, KeyEventArgs e)
-    {
-        // Enter / Esc finish editing the name.
-        if (e.Key is Key.Enter or Key.Escape)
-        {
-            Keyboard.ClearFocus();
-            Focus();
-            e.Handled = true;
-        }
-    }
-
-    private void MoveEachClickCheck_Click(object sender, RoutedEventArgs e)
-    {
-        bool value = MoveEachClickCheck.IsChecked == true;
-        _settings.MoveBeforeEachClick = value;
-        _engine.MoveBeforeEachClick = value;
-        SaveSettings();
-    }
-
-    /// <summary>Sends the active point (or none) to the engine and updates the "Target" line.</summary>
-    private void ApplyTarget()
-    {
-        SavedPoint? active = _points.FirstOrDefault(p => p.IsActive);
-        ScreenPoint? target = active?.Position;
-
-        // Only touch the engine when the position really changed: setting Target moves the cursor while running.
-        if (_engine.Target != target)
-            _engine.Target = target;
-
-        TargetText.Text = active != null
-            ? Loc.Instance.Format("TargetPoint", active.Name, active.CoordinatesText)
-            : Loc.Instance["TargetCursor"];
-    }
-
-    private void RefreshPointsUi()
-    {
-        PointsEmptyText.Text = Loc.Instance.Format("PointsEmpty", _settings.RecordHotkey.ToDisplayString());
-        PointsEmptyText.Visibility = _points.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     // ------------------------------------------------------------------ Language
@@ -488,11 +323,29 @@ public partial class MainWindow : Window
         AdminPanel.Visibility = _isAdmin ? Visibility.Collapsed : Visibility.Visible;
         AdminStatusText.Visibility = _isAdmin ? Visibility.Visible : Visibility.Collapsed;
 
+        foreach (Pattern pattern in _patterns)
+            pattern.RefreshInfo();
+
         ValidateInterval();
+        ValidatePatternNumbers();
         RefreshHotkeyUi();
         RefreshPointsUi();
-        ApplyTarget();
+        RefreshPatternsUi();
+        ApplyPointTarget();
         UpdateRunningState();
+    }
+
+    // ------------------------------------------------------------------ Shared list editing
+
+    private void NameBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        // Enter / Esc finish editing a point or pattern name.
+        if (e.Key is Key.Enter or Key.Escape)
+        {
+            Keyboard.ClearFocus();
+            Focus();
+            e.Handled = true;
+        }
     }
 
     // ------------------------------------------------------------------ Tray / closing
@@ -510,13 +363,15 @@ public partial class MainWindow : Window
         Focus();
     }
 
+    private bool IsHiddenOrMinimized => !IsVisible || WindowState == WindowState.Minimized;
+
     protected override void OnClosing(CancelEventArgs e)
     {
         if (!_exitRequested)
         {
             // The X button hides the window to the tray; the app keeps running.
             e.Cancel = true;
-            if (_capturing != HotkeyKind.None) EndHotkeyCapture(null);
+            if (_capturing != null) EndHotkeyCapture(null);
             Hide();
 
             if (!_trayHintShown)
@@ -535,11 +390,14 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         Loc.Instance.LanguageChanged -= RefreshTexts;
-        _counterTimer.Stop();
+        _statusTimer.Stop();
+        if (_recorder.IsRecording) FinishRecording(); // don't lose a recording on exit
         _engine.Dispose();
+        _player.Dispose();
         _hotkeys.Dispose();
         _tray.Dispose();
         SaveSettings();
+        SavePatterns();
         base.OnClosed(e);
     }
 
@@ -554,6 +412,7 @@ public partial class MainWindow : Window
     private void RestartAsAdmin_Click(object sender, RoutedEventArgs e)
     {
         SaveSettings();
+        SavePatterns();
 
         string? exePath = Environment.ProcessPath;
         if (exePath == null) return;
@@ -582,6 +441,9 @@ public partial class MainWindow : Window
         _settings.Points = _points.ToList();
         SettingsStore.Save(_settings);
     }
+
+    private static bool TryParseNumber(string text, int min, int max, out int value) =>
+        int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out value) && value >= min && value <= max;
 
     private static void SelectByTag(ComboBox combo, string tag)
     {

@@ -27,6 +27,8 @@ public sealed class HotkeyBinding
 
     public static HotkeyBinding DefaultRecord => new() { VirtualKey = 0x76 }; // F7
 
+    public static HotkeyBinding DefaultPattern => new() { VirtualKey = 0x77 }; // F8
+
     [JsonIgnore]
     public bool IsValid => VirtualKey > 0 && VirtualKey < 0xFF;
 

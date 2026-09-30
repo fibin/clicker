@@ -117,5 +117,43 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- Flat tabs -->
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0,10,0,0" />
+        </Style>
+
+        <Style TargetType="TabItem">
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Root" Padding="{TemplateBinding Padding}" Background="Transparent"
+                                BorderBrush="Transparent" BorderThickness="0,0,0,2">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#EEF2FF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NumberBox" TargetType="TextBox">
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="MaxLength" Value="7" />
+        </Style>
     </Application.Resources>
 </Application>

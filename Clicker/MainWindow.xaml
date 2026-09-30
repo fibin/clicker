@@ -4,7 +4,7 @@
         xmlns:loc="clr-namespace:Clicker.Localization"
         Title="{loc:Tr AppTitle}"
         Icon="Assets/clicker.ico"
-        Width="460"
+        Width="480"
         SizeToContent="Height"
         ResizeMode="CanMinimize"
         WindowStartupLocation="CenterScreen"
@@ -38,7 +38,7 @@
         </Grid>
 
         <!-- Status -->
-        <Border Style="{StaticResource Card}">
+        <Border Style="{StaticResource Card}" Margin="0">
             <StackPanel>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -57,141 +57,256 @@
             </StackPanel>
         </Border>
 
-        <!-- Interval + mouse button -->
-        <Border Style="{StaticResource Card}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Text="{loc:Tr Interval}" Style="{StaticResource Label}" />
-                    <StackPanel Orientation="Horizontal">
-                        <TextBox x:Name="IntervalBox" Width="110" Padding="6,4" MaxLength="7"
-                                 VerticalContentAlignment="Center"
-                                 PreviewTextInput="IntervalBox_PreviewTextInput"
-                                 TextChanged="IntervalBox_TextChanged"
-                                 LostFocus="IntervalBox_LostFocus" />
-                        <TextBlock x:Name="CpsText" Margin="10,0,0,0" VerticalAlignment="Center"
-                                   Style="{StaticResource Hint}" FontSize="13" />
+        <TabControl x:Name="Tabs" Height="500" Margin="0,6,0,0">
+
+            <!-- ============================== Auto-click ============================== -->
+            <TabItem Header="{loc:Tr TabClicker}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <!-- Interval + mouse button -->
+                        <Border Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="{loc:Tr Interval}" Style="{StaticResource Label}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBox x:Name="IntervalBox" Width="110" Style="{StaticResource NumberBox}"
+                                                 PreviewTextInput="DigitsOnly_PreviewTextInput"
+                                                 TextChanged="IntervalBox_TextChanged"
+                                                 LostFocus="IntervalBox_LostFocus" />
+                                        <TextBlock x:Name="CpsText" Margin="10,0,0,0" VerticalAlignment="Center"
+                                                   Style="{StaticResource Hint}" FontSize="13" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="IntervalError" Margin="0,6,0,0" Foreground="{StaticResource ErrorBrush}"
+                                               FontSize="12" TextWrapping="Wrap" Visibility="Collapsed" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="14,0,0,0">
+                                    <TextBlock Text="{loc:Tr MouseButton}" Style="{StaticResource Label}" />
+                                    <ComboBox x:Name="ButtonCombo" Width="120" SelectionChanged="ButtonCombo_SelectionChanged">
+                                        <ComboBoxItem Tag="Left" Content="{loc:Tr Left}" />
+                                        <ComboBoxItem Tag="Right" Content="{loc:Tr Right}" />
+                                        <ComboBoxItem Tag="Middle" Content="{loc:Tr Middle}" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Screen points -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Tr Points}" Style="{StaticResource Label}" />
+                                <TextBlock x:Name="PointsEmptyText" Style="{StaticResource Hint}" FontSize="13" Margin="0,2,0,8" />
+
+                                <ItemsControl x:Name="PointsList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Padding="8,5" Margin="0,0,0,6" CornerRadius="6" Background="#F9FAFB"
+                                                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <ToggleButton Style="{StaticResource Switch}" VerticalAlignment="Center"
+                                                                  IsChecked="{Binding IsActive, Mode=TwoWay}"
+                                                                  ToolTip="{loc:Tr ActivatePoint}"
+                                                                  Click="PointToggle_Click" />
+                                                    <TextBox Grid.Column="1" Margin="8,0" Padding="2,3" MaxLength="40"
+                                                             Background="Transparent" BorderThickness="0,0,0,1"
+                                                             BorderBrush="{StaticResource CardBorderBrush}"
+                                                             VerticalContentAlignment="Center"
+                                                             Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                             LostFocus="PointName_LostFocus"
+                                                             KeyDown="NameBox_KeyDown" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding CoordinatesText}" FontFamily="Consolas"
+                                                               Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                                                    <Button Grid.Column="3" Content="✕" Margin="6,0,0,0"
+                                                            Style="{StaticResource IconButton}"
+                                                            ToolTip="{loc:Tr DeletePoint}"
+                                                            Click="DeletePoint_Click" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <CheckBox x:Name="MoveEachClickCheck" Content="{loc:Tr MoveEachClick}" Margin="0,4,0,0"
+                                          Click="MoveEachClickCheck_Click" />
+                                <TextBlock Text="{loc:Tr PointsHint}" Style="{StaticResource Hint}" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
-                    <TextBlock x:Name="IntervalError" Margin="0,6,0,0" Foreground="{StaticResource ErrorBrush}"
-                               FontSize="12" TextWrapping="Wrap" Visibility="Collapsed" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Margin="14,0,0,0">
-                    <TextBlock Text="{loc:Tr MouseButton}" Style="{StaticResource Label}" />
-                    <ComboBox x:Name="ButtonCombo" Width="120" SelectionChanged="ButtonCombo_SelectionChanged">
-                        <ComboBoxItem Tag="Left" Content="{loc:Tr Left}" />
-                        <ComboBoxItem Tag="Right" Content="{loc:Tr Right}" />
-                        <ComboBoxItem Tag="Middle" Content="{loc:Tr Middle}" />
-                    </ComboBox>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- Hotkeys -->
-        <Border Style="{StaticResource Card}">
-            <StackPanel>
-                <TextBlock Text="{loc:Tr Hotkey}" Style="{StaticResource Label}" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Border x:Name="ToggleHotkeyBox" Background="#F3F4F6" CornerRadius="6" Padding="10,6"
-                            BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
-                        <TextBlock x:Name="ToggleHotkeyText" FontFamily="Consolas" FontSize="15" FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                    </Border>
-                    <Button x:Name="ChangeToggleHotkeyButton" Grid.Column="1" Margin="10,0,0,0" MinWidth="100"
-                            Style="{StaticResource SecondaryButton}" Focusable="False"
-                            Click="ChangeToggleHotkeyButton_Click" />
-                </Grid>
-
-                <TextBlock Text="{loc:Tr RecordHotkey}" Style="{StaticResource Label}" Margin="0,12,0,6" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Border x:Name="RecordHotkeyBox" Background="#F3F4F6" CornerRadius="6" Padding="10,6"
-                            BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
-                        <TextBlock x:Name="RecordHotkeyText" FontFamily="Consolas" FontSize="15" FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                    </Border>
-                    <Button x:Name="ChangeRecordHotkeyButton" Grid.Column="1" Margin="10,0,0,0" MinWidth="100"
-                            Style="{StaticResource SecondaryButton}" Focusable="False"
-                            Click="ChangeRecordHotkeyButton_Click" />
-                </Grid>
-
-                <TextBlock x:Name="HotkeyErrorText" Text="{loc:Tr HotkeyInUse}" Margin="0,6,0,0"
-                           Foreground="{StaticResource ErrorBrush}" FontSize="12" TextWrapping="Wrap"
-                           Visibility="Collapsed" />
-                <TextBlock Text="{loc:Tr HotkeyHint}" Style="{StaticResource Hint}" Margin="0,6,0,0" />
-            </StackPanel>
-        </Border>
-
-        <!-- Screen points -->
-        <Border Style="{StaticResource Card}">
-            <StackPanel>
-                <TextBlock Text="{loc:Tr Points}" Style="{StaticResource Label}" />
-
-                <TextBlock x:Name="PointsEmptyText" Style="{StaticResource Hint}" FontSize="13" Margin="0,2,0,8" />
-
-                <ScrollViewer MaxHeight="210" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <ItemsControl x:Name="PointsList">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Padding="8,5" Margin="0,0,0,6" CornerRadius="6" Background="#F9FAFB"
-                                        BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <ToggleButton Style="{StaticResource Switch}" VerticalAlignment="Center"
-                                                      IsChecked="{Binding IsActive, Mode=TwoWay}"
-                                                      ToolTip="{loc:Tr ActivatePoint}"
-                                                      Click="PointToggle_Click" />
-                                        <TextBox Grid.Column="1" Margin="8,0" Padding="2,3" MaxLength="40"
-                                                 Background="Transparent" BorderThickness="0,0,0,1"
-                                                 BorderBrush="{StaticResource CardBorderBrush}"
-                                                 VerticalContentAlignment="Center"
-                                                 Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
-                                                 LostFocus="PointName_LostFocus"
-                                                 KeyDown="PointName_KeyDown" />
-                                        <TextBlock Grid.Column="2" Text="{Binding CoordinatesText}" FontFamily="Consolas"
-                                                   Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
-                                        <Button Grid.Column="3" Content="✕" Margin="6,0,0,0"
-                                                Style="{StaticResource IconButton}"
-                                                ToolTip="{loc:Tr DeletePoint}"
-                                                Click="DeletePoint_Click" />
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
                 </ScrollViewer>
+            </TabItem>
 
-                <CheckBox x:Name="MoveEachClickCheck" Content="{loc:Tr MoveEachClick}" Margin="0,4,0,0"
-                          Click="MoveEachClickCheck_Click" />
-                <TextBlock Text="{loc:Tr PointsHint}" Style="{StaticResource Hint}" Margin="0,6,0,0" />
-            </StackPanel>
-        </Border>
+            <!-- ============================== Patterns ============================== -->
+            <TabItem Header="{loc:Tr TabPatterns}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <!-- Record -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <Button x:Name="RecordPatternButton" Style="{StaticResource FlatButton}" Height="40"
+                                        Focusable="False" Click="RecordPatternButton_Click" />
+                                <CheckBox x:Name="RecordKeyboardCheck" Content="{loc:Tr RecordKeyboard}" Margin="0,10,0,0"
+                                          Click="RecordKeyboardCheck_Click" />
+                                <TextBlock x:Name="PatternsEmptyText" Style="{StaticResource Hint}" FontSize="13" Margin="0,8,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- List -->
+                        <Border x:Name="PatternsCard" Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Tr Patterns}" Style="{StaticResource Label}" />
+                                <ItemsControl x:Name="PatternsList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Padding="8,5" Margin="0,0,0,6" CornerRadius="6" Background="#F9FAFB"
+                                                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <ToggleButton Style="{StaticResource Switch}" VerticalAlignment="Center"
+                                                                  IsChecked="{Binding IsActive, Mode=TwoWay}"
+                                                                  Click="PatternToggle_Click" />
+                                                    <TextBox Grid.Column="1" Margin="8,0" Padding="2,3" MaxLength="40"
+                                                             Background="Transparent" BorderThickness="0,0,0,1"
+                                                             BorderBrush="{StaticResource CardBorderBrush}"
+                                                             VerticalContentAlignment="Center"
+                                                             Text="{Binding Name, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                                             LostFocus="PatternName_LostFocus"
+                                                             KeyDown="NameBox_KeyDown" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding InfoText}"
+                                                               Foreground="{StaticResource MutedBrush}" FontSize="12"
+                                                               VerticalAlignment="Center" />
+                                                    <Button Grid.Column="3" Content="✕" Margin="6,0,0,0"
+                                                            Style="{StaticResource IconButton}"
+                                                            ToolTip="{loc:Tr DeletePoint}"
+                                                            Click="DeletePattern_Click" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock x:Name="PatternsHintText" Style="{StaticResource Hint}" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Playback settings -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,8,0">
+                                        <TextBlock Text="{loc:Tr Repeats}" Style="{StaticResource Label}" TextWrapping="Wrap" />
+                                        <TextBox x:Name="RepeatsBox" Style="{StaticResource NumberBox}"
+                                                 PreviewTextInput="DigitsOnly_PreviewTextInput"
+                                                 TextChanged="PatternNumbers_TextChanged"
+                                                 LostFocus="PatternNumbers_LostFocus" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock Text="{loc:Tr LoopDelay}" Style="{StaticResource Label}" TextWrapping="Wrap" />
+                                        <TextBox x:Name="LoopDelayBox" Style="{StaticResource NumberBox}"
+                                                 PreviewTextInput="DigitsOnly_PreviewTextInput"
+                                                 TextChanged="PatternNumbers_TextChanged"
+                                                 LostFocus="PatternNumbers_LostFocus" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock x:Name="PatternNumbersError" Margin="0,6,0,0" Foreground="{StaticResource ErrorBrush}"
+                                           FontSize="12" TextWrapping="Wrap" Visibility="Collapsed" />
+                                <TextBlock Text="{loc:Tr PatternWarning}" Style="{StaticResource Hint}" Margin="0,8,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ============================== Hotkeys ============================== -->
+            <TabItem Header="{loc:Tr TabHotkeys}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                            <TextBlock Text="{loc:Tr Hotkey}" Style="{StaticResource Label}" Margin="0,0,0,6" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="ToggleHotkeyBox" Background="#F3F4F6" CornerRadius="6" Padding="10,6"
+                                        BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                    <TextBlock x:Name="ToggleHotkeyText" FontFamily="Consolas" FontSize="15" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                </Border>
+                                <Button x:Name="ChangeToggleHotkeyButton" Grid.Column="1" Margin="10,0,0,0" MinWidth="100"
+                                        Style="{StaticResource SecondaryButton}" Focusable="False"
+                                        Click="ChangeToggleHotkeyButton_Click" />
+                            </Grid>
+                            <TextBlock Text="{loc:Tr RecordHotkey}" Style="{StaticResource Label}" Margin="0,12,0,6" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="RecordHotkeyBox" Background="#F3F4F6" CornerRadius="6" Padding="10,6"
+                                        BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                    <TextBlock x:Name="RecordHotkeyText" FontFamily="Consolas" FontSize="15" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                </Border>
+                                <Button x:Name="ChangeRecordHotkeyButton" Grid.Column="1" Margin="10,0,0,0" MinWidth="100"
+                                        Style="{StaticResource SecondaryButton}" Focusable="False"
+                                        Click="ChangeRecordHotkeyButton_Click" />
+                            </Grid>
+                            <TextBlock Text="{loc:Tr PatternHotkey}" Style="{StaticResource Label}" Margin="0,12,0,6" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="PatternHotkeyBox" Background="#F3F4F6" CornerRadius="6" Padding="10,6"
+                                        BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                    <TextBlock x:Name="PatternHotkeyText" FontFamily="Consolas" FontSize="15" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                </Border>
+                                <Button x:Name="ChangePatternHotkeyButton" Grid.Column="1" Margin="10,0,0,0" MinWidth="100"
+                                        Style="{StaticResource SecondaryButton}" Focusable="False"
+                                        Click="ChangePatternHotkeyButton_Click" />
+                            </Grid>
+
+                                <TextBlock x:Name="HotkeyErrorText" Text="{loc:Tr HotkeyInUse}" Margin="0,6,0,0"
+                                           Foreground="{StaticResource ErrorBrush}" FontSize="12" TextWrapping="Wrap"
+                                           Visibility="Collapsed" />
+                                <TextBlock Text="{loc:Tr HotkeyHint}" Style="{StaticResource Hint}" Margin="0,8,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Administrator -->
+                        <StackPanel x:Name="AdminPanel" Margin="0,4,0,0">
+                            <TextBlock Text="{loc:Tr AdminHint}" Style="{StaticResource Hint}" Margin="0,0,0,6" />
+                            <Button Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Focusable="False"
+                                    Content="{loc:Tr RunAsAdmin}" Click="RestartAsAdmin_Click" />
+                        </StackPanel>
+                        <TextBlock x:Name="AdminStatusText" Text="{loc:Tr RunningAsAdmin}" Style="{StaticResource Hint}"
+                                   Margin="0,4,0,0" Visibility="Collapsed" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
 
         <!-- Start / Stop -->
         <Button x:Name="StartStopButton" Style="{StaticResource FlatButton}" Height="46" FontSize="16"
-                Margin="0,4,0,0" Focusable="False" Click="StartStopButton_Click" />
-
-        <!-- Administrator -->
-        <StackPanel x:Name="AdminPanel" Margin="0,14,0,0">
-            <TextBlock Text="{loc:Tr AdminHint}" Style="{StaticResource Hint}" Margin="0,0,0,6" />
-            <Button Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Focusable="False"
-                    Content="{loc:Tr RunAsAdmin}" Click="RestartAsAdmin_Click" />
-        </StackPanel>
-        <TextBlock x:Name="AdminStatusText" Text="{loc:Tr RunningAsAdmin}" Style="{StaticResource Hint}"
-                   Margin="0,12,0,0" Visibility="Collapsed" />
+                Margin="0,10,0,0" Focusable="False" Click="StartStopButton_Click" />
     </StackPanel>
 </Window>
