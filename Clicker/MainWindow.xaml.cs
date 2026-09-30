@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Security.Principal;
 using System.Windows;
 using System.Windows.Controls;
@@ -45,6 +46,7 @@ public partial class MainWindow : Window
         _settings = settings;
         InitializeComponent();
 
+        VersionText.Text = "v" + AppVersion;
         _isAdmin = new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
 
         // Saved points
@@ -452,6 +454,20 @@ public partial class MainWindow : Window
     {
         _settings.Points = _points.ToList();
         SettingsStore.Save(_settings);
+    }
+
+    /// <summary>"1.2.0" (or "1.0.0-dev.15" for CI test builds), without the "+commit" build metadata.</summary>
+    private static string AppVersion
+    {
+        get
+        {
+            string? version = Assembly.GetExecutingAssembly()
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            if (string.IsNullOrEmpty(version)) return "?";
+
+            int plus = version.IndexOf('+');
+            return plus >= 0 ? version[..plus] : version;
+        }
     }
 
     private static bool TryParseNumber(string text, int min, int max, out int value) =>

@@ -2,6 +2,17 @@
 
 An auto clicker for Windows 10/11, built with .NET 8 and WPF.
 
+## Download
+
+**[⬇ Download the latest Clicker.exe](https://github.com/fibin/clicker/releases/latest)** — open the page, download `Clicker.exe` under *Assets* and run it. Nothing to install: no Git, no .NET.
+
+- `Clicker.exe` — portable, works on any Windows 10/11 x64 PC.
+- `Clicker-small-needs-dotnet8.exe` — much smaller, but needs the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) installed.
+
+Windows SmartScreen may warn about an unrecognized app because the exe isn't code-signed: click **More info → Run anyway**. Some antivirus programs are suspicious of any auto-clicker (it uses global input hooks); the full source is in this repository and every release is built by GitHub Actions from it.
+
+Settings and patterns are stored in `%APPDATA%\Clicker`, so replacing the exe with a newer version keeps them.
+
 ## Features
 - **Custom start/stop hotkey** — any key with optional Ctrl/Alt/Shift/Win, or the side (Mouse 4/5) or middle mouse button. Default: `F6`.
 - **Click interval in milliseconds** — from 1 to 3,600,000, with a clicks-per-second preview. The interval can be changed while clicking.
@@ -29,6 +40,16 @@ An auto clicker for Windows 10/11, built with .NET 8 and WPF.
 **The overlay is not visible over games in exclusive fullscreen** — switch the game to borderless window mode.
 
 **Online games with anti-cheat** (Vanguard, EAC, BattlEye, etc.) may detect synthetic input and ban the account. Use it in single-player games.
+
+## Releases (for maintainers)
+Every push to `main` is built by GitHub Actions (`.github/workflows/build.yml`); the exe files are attached to the workflow run as *Artifacts*. To publish a release:
+
+```
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+The workflow builds the app with that version number and creates a GitHub Release with both exe files.
 
 ## Build and run
 Requires the .NET SDK 8 or newer (`dotnet --version`).

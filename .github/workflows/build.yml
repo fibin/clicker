@@ -1,0 +1,80 @@
+name: Build & Release
+
+# Every push to main builds the app (downloadable from the workflow run's "Artifacts").
+# Pushing a tag like v1.2.0 also publishes a GitHub Release with ready-to-run exe files.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to create releases
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Work out the version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}".TrimStart("v")
+            $buildArgs = "-p:Version=$version"
+          } else {
+            $version = "dev-${{ github.run_number }}"
+            $buildArgs = "-p:VersionSuffix=dev.${{ github.run_number }}"
+          }
+          "name=$version" >> $env:GITHUB_OUTPUT
+          "args=$buildArgs" >> $env:GITHUB_OUTPUT
+
+      # Main download: one exe that runs on any Windows 10/11 x64 PC, no .NET installation needed.
+      - name: Publish portable exe (self-contained)
+        run: >
+          dotnet publish Clicker/Clicker.csproj -c Release -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=none
+          ${{ steps.version.outputs.args }}
+          -o out/portable
+
+      # Small alternative for PCs that already have the .NET 8 Desktop Runtime.
+      - name: Publish small exe (needs .NET 8 Desktop Runtime)
+        run: >
+          dotnet publish Clicker/Clicker.csproj -c Release -r win-x64
+          --self-contained false
+          -p:PublishSingleFile=true
+          -p:DebugType=none
+          ${{ steps.version.outputs.args }}
+          -o out/small
+
+      - name: Collect files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item out/portable/Clicker.exe dist/Clicker.exe
+          Copy-Item out/small/Clicker.exe dist/Clicker-small-needs-dotnet8.exe
+          Get-ChildItem dist | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clicker-${{ steps.version.outputs.name }}
+          path: dist/*
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
