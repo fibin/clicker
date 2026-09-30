@@ -16,7 +16,7 @@
     <RollForward>Major</RollForward>
     <VersionPrefix>1.0.0</VersionPrefix>
     <Product>Clicker</Product>
-    <Copyright>Copyright (c) 2026 panaramiss</Copyright>
+    <Copyright>Copyright (c) 2026 Dmytro Viienko</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
